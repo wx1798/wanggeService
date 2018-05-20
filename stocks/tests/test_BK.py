@@ -8,7 +8,7 @@ Description :
 
 @Author :       pchaos
 
-date：          18-5-9
+tradedate：          18-5-9
 -------------------------------------------------
 Change Activity:
                18-5-9:
@@ -16,7 +16,7 @@ Change Activity:
 -------------------------------------------------
 """
 from django.test import TestCase
-from stocks.models import Stockcode, BKDetail, MARKET_CHOICES, YES_NO, STOCK_CATEGORY
+from stocks.models import Listing, BKDetail, MARKET_CHOICES, YES_NO, STOCK_CATEGORY
 from stocks.models import BK
 from django.utils import timezone
 from datetime import datetime

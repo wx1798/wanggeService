@@ -8,7 +8,7 @@ Description :
 
 @Author :       pchaos
 
-date：          18-4-12
+tradedate：          18-4-12
 -------------------------------------------------
 Change Activity:
                18-4-12:
@@ -17,7 +17,7 @@ Change Activity:
 """
 
 from django.test import TestCase
-from stocks.models import Stockcode, BKDetail, MARKET_CHOICES, YES_NO, STOCK_CATEGORY
+from stocks.models import Listing, BKDetail, MARKET_CHOICES, YES_NO, STOCK_CATEGORY
 from django.utils import timezone
 from datetime import datetime
 
@@ -27,14 +27,30 @@ import json
 
 
 class TestListing(TestCase):
+    def test_getCategory(self):
+        c = Listing.getCategory('stock')
+        self.assertTrue(c == 10, '类型不对：{}'.format(c))
+        c = Listing.getCategory('index')
+        self.assertTrue(c == 11, '类型不对：{}'.format(c))
+        c = Listing.getCategory('etf')
+        self.assertTrue(c == 12, '类型不对：{}'.format(c))
+        c = Listing.getCategory('ZQ')
+        self.assertTrue(c == 13, '类型不对：{}'.format(c))
+        c = Listing.getCategory('NHG')
+        self.assertTrue(c == 14, '类型不对：{}'.format(c))
+        c = Listing.getCategory(10)
+        self.assertTrue(c == 10, '类型不对：{}'.format(c))
+        c = Listing.getCategory(11)
+        self.assertTrue(c == 11, '类型不对：{}'.format(c))
+
     def test_Stockcode(self):
         a, b = MARKET_CHOICES[0]
         up_date = timezone.now()
-        sc = Stockcode(code='tt0001', name='Test0001', timeToMarket=up_date, market=a)
+        sc = Listing(code='tt0001', name='Test0001', timeToMarket=up_date, market=a)
         sc.save()
-        # i = Stockcode.objects.all().count()
-        i = Stockcode.getCodelist().count()
-        self.assertTrue(i > 0, 'Stockcode count:{}'.format(i))
+        # i = Listing.objects.all().count()
+        i = Listing.getCodelist().count()
+        self.assertTrue(i > 0, 'Listing count:{}'.format(i))
         # object to json
         print('sc.__dict__ : {}'.format(sc.__dict__))
         print('json sc.__dict__ : {}'.format(json.dumps(sc, default=str)))
@@ -60,16 +76,28 @@ class TestListing(TestCase):
         插入所有的A股股票代码
         :return:
         """
-        oldcounts = Stockcode.getCodelist().count()
-        df = Stockcode.importStockListing()
-        print(Stockcode.getCodelist().count())
-        self.assertTrue(Stockcode.getCodelist().count() == oldcounts + len(df),
-                        '插入未成功, after :{} before : {}; 应插入：{}条记录'.format(Stockcode.objects.all().count(), oldcounts,
+        oldcounts = Listing.getCodelist().count()
+        df = Listing.importStockListing()
+        print('before:{} after: {}'.format(oldcounts, Listing.getCodelist().count()))
+        self.assertTrue(Listing.getCodelist().count() == oldcounts + len(df),
+                        '插入未成功, after :{} before : {}; 应插入：{}条记录'.format(Listing.objects.all().count(), oldcounts,
                                                                          len(df)))
         # 再次导入，不会报错
-        df = Stockcode.importStockListing()
+        df = Listing.importStockListing()
+
+    def test_importIndexlisting(self):
+        oldcount = Listing.getCodelist('index').count()
+        Listing.importIndexListing()
+        count = Listing.getCodelist('index').count()
+        self.assertTrue(count - oldcount > 500, '2018-05 指数数量应大于500， {}'.format(count - oldcount))
 
     def test_getCodelist(self):
-        oldcounts = Stockcode.getCodelist().count()
-        self.assertTrue(Stockcode.getCodelist('all').count() >= oldcounts,
-                        '所有类型代码数量比股票代码数量多, after :{} before : {}; '.format(Stockcode.objects.all().count(), oldcounts))
+        oldcounts = Listing.getCodelist().count()
+        self.assertTrue(Listing.getCodelist('all').count() >= oldcounts,
+                        '所有类型代码数量比股票代码数量多, after :{} before : {}; '.format(Listing.objects.all().count(), oldcounts))
+        counts = 0
+        for category, b in STOCK_CATEGORY:
+            counts += Listing.objects.all().filter(category=category).count()
+        count = Listing.getCodelist('all').count()
+        self.assertTrue(counts == count, '明细汇总应该和总体数量一样：{} - {}'.format(counts, count))
+

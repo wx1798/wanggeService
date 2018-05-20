@@ -8,7 +8,7 @@ Description :
 
 @Author :       pchaos
 
-date：          2018-5-6
+tradedate：          2018-5-6
 -------------------------------------------------
 Change Activity:
                2018-5-6:
@@ -22,10 +22,18 @@ import datetime
 import QUANTAXIS as qa
 import numpy as np
 import pandas as pd
-from stocks.models import Stockcode, STOCK_CATEGORY
+from stocks.models import Listing, STOCK_CATEGORY
 
 
 class testQuantaxis(TestCase):
+    """ 测试quantaxis
+        qa.QA_fetch_stock_day_adv
+        qa.QAFetch.QATdx.QA_fetch_get_stock_list('stock')
+        qa.QAFetch.QATdx.QA_fetch_get_index_day(code, '2017-01-01', '2017-09-01')
+        qa.QAFetch.QATdx.QA_fetch_get_stock_list('index')
+        qa.QA_fetch_index_day_adv(a.code, '1990-01-01', str(datetime.date.today()))
+
+    """
     def setUp(self):
         self.code = '000001'
 
@@ -42,7 +50,7 @@ class testQuantaxis(TestCase):
         s.low  # 最低价序列
         s.vol  # 量
         s.volume  # 同vol
-        s.date  # 日期
+        s.tradedate  # 日期
         s.datetime
         s.index  # 索引
         s.price  # 平均价(O+H+L+C)/4
@@ -75,8 +83,8 @@ class testQuantaxis(TestCase):
         # 导入股票列表
         # from .test_listing import TestListing
         # tsc = TestListing()
-        Stockcode.importStockListing()
-        listings = Stockcode.objects.all()
+        Listing.importStockListing()
+        listings = Listing.objects.all()
         df = pd.DataFrame()
         codelist = []
         for a in listings[:100]:
@@ -102,12 +110,12 @@ class testQuantaxis(TestCase):
         day = '2017-9-29'
         # dfd = caculateRPS(df, day, [121, 251])
         dfd = self.caculateRPS(df, day, [120, 250])
-        self.assertTrue(dfd[dfd['code'] =='000001'] is not None, 'result must not None!')
+        self.assertTrue(dfd[dfd['code'] == '000001'] is not None, 'result must not None!')
         # dfd = self.caculateRPS(df, day, [121, 250]) # 会报错
 
         # self.assertTrue(dfd.sort_values(by=['rps120'])['rps120'].equals(rps120.a), '按照code排序以后应该相同，{} != {}'.format(dfd['rps120'], rps120['a']))
 
-    def caculateRPS(self, df, dateStr, nlist = [120, 250]):
+    def caculateRPS(self, df, dateStr, nlist=[120, 250]):
         """
         计算n日rps
         :param df: dataframe
@@ -117,7 +125,7 @@ class testQuantaxis(TestCase):
         """
         dfd = df[df.index == dateStr]
         dfd.reset_index(inplace=True)
-        # del dfd['date']
+        # del dfd['tradedate']
         for n in nlist:
             dfd.reset_index(inplace=True)
             rpsname = 'rps{}'.format(str(n))
@@ -263,8 +271,8 @@ class testQuantaxis(TestCase):
         data = qa.QA_fetch_stock_day_adv(code, '2016-12-01', '2017-02-01')  # [可选to_qfq(),to_hfq()]
         s = qa.QAAnalysis_stock(data)
         # 传入为pd dataframe
-        qa = qa.QA_indicator_ATR(s.data, n)
-        qr = qa > 0
+        qaatr = qa.QA_indicator_ATR(s.data, n)
+        qr = qaatr > 0
         self.assertTrue(not qr.iloc[0].ATR, '第一个ATR应该为空：{}'.format(qr.iloc[0].ATR))
         self.assertTrue(qr.iloc[n].ATR, '第{}个ATR不应该为空：{}'.format(n, qr.iloc[n].ATR))
         '''
@@ -334,6 +342,12 @@ class testQuantaxis(TestCase):
             a = df.loc[i]
             # 本地获取指数日线数据
             data = qa.QA_fetch_index_day_adv(a.code, '1990-01-01', str(datetime.date.today()))
+            """
+            从本地数据库获取数据
+            data = qa.QA_fetch_index_day_adv(a.code, '1990-01-01', datetime.now().strftime("%Y-%m-%d"))
+            从网络获取数据
+            data = qa.QAFetch.QATdx.QA_fetch_get_index_day(code, '2017-01-01', '2017-09-01')
+            """
             d = data.data.date[0].strftime("%Y-%m-%d")
             if a.sse == 'sh':
                 market = 1
@@ -341,7 +355,9 @@ class testQuantaxis(TestCase):
                 market = 0
             category = 11
             querysetlist.append(
-                Stockcode(code=a.code, name=a['name'], timeToMarket=d, volunit=a.volunit, decimalpoint=a.decimal_point,
-                          category=category, market=market))
-        Stockcode.objects.bulk_create(querysetlist)
-        self.assertTrue(Stockcode.getCodelist('index').count() > 0, '未插入成功:{}'.format(querysetlist))
+                Listing(code=a.code, name=a['name'], timeToMarket=d, volunit=a.volunit, decimalpoint=a.decimal_point,
+                        category=category, market=market))
+        Listing.objects.bulk_create(querysetlist)
+        self.assertTrue(Listing.getCodelist('index').count() > 0, '未插入成功:{}'.format(querysetlist))
+
+
