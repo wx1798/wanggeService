@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from datetime import datetime
+import datetime
 import pandas as pd
 import pytz
 from django.conf import settings
@@ -84,7 +84,7 @@ class Listing(stockABS):
                     market = 0
                 category = 10
                 querysetlist.append(
-                    Listing(code=a.name, name=a['name'], timeToMarket=datetime(d // 10000, d // 100 % 100, d % 100),
+                    Listing(code=a.name, name=a['name'], timeToMarket=datetime.datetime(d // 10000, d // 100 % 100, d % 100),
                             category=category, market=market))
             cls.objects.bulk_create(querysetlist)
         except Exception as e:
@@ -128,10 +128,10 @@ class Listing(stockABS):
             cls.objects.bulk_create(querysetlist)
         except Exception as e:
             print(a, e.args)
-        return cls.getCodelist('index')
+        return cls.getlist('index')
 
     @classmethod
-    def getCodelist(cls, type_='stock'):
+    def getlist(cls, type_='stock'):
         """
         返回stock_category类型列表
         :param stock_category: 证券类型
@@ -221,7 +221,7 @@ class RPSBase(stockABS):
     tradedate = models.DateField(verbose_name='交易日期')
 
     @classmethod
-    def getCodelist(cls, type_='stock'):
+    def getlist(cls, type_='stock'):
         """
         返回stock_category类型列表
 
@@ -262,7 +262,7 @@ class RPSprepare(RPSBase):
         插入所有股票指数
         :return:
         """
-        codelist = Listing.getCodelist('index')
+        codelist = Listing.getlist('index')
         # todo 如果已经插入，则判断是否有更新
         try:
             # 批量创建对象，减少SQL查询次数
@@ -273,7 +273,7 @@ class RPSprepare(RPSBase):
                 # get stockcode
                 code = Listing.objects.get(code=v['code'], category=11)
                 # 本地获取指数日线数据
-                data = qa.QA_fetch_index_day_adv(v['code'], '1990-01-01', datetime.now().strftime("%Y-%m-%d"))
+                data = qa.QA_fetch_index_day_adv(v['code'], '1990-01-01', datetime.datetime.now().strftime("%Y-%m-%d"))
                 if len(data) > 120:
                     df = pd.DataFrame(data.close)
                     df['rps120'] = df.close / df.close.shift(120)
@@ -292,7 +292,7 @@ class RPSprepare(RPSBase):
             RPSprepare.objects.bulk_create(querysetlist)
         except Exception as e:
             print(e.args)
-        return cls.getCodelist('index')
+        return cls.getlist('index')
 
 
 class RPS(RPSBase):
@@ -309,7 +309,7 @@ class RPS(RPSBase):
         插入所有股票指数
         :return:
         """
-        codelist = super().getCodelist('index')
+        codelist = super().getlist('index')
         # todo 如果已经插入，则判断是否有更新
         try:
             # 批量创建对象，减少SQL查询次数
@@ -339,9 +339,98 @@ class RPS(RPSBase):
             RPSprepare.objects.bulk_create(querysetlist)
         except Exception as e:
             print(e.args)
-        return cls.getCodelist('index')
+        return cls.getlist('index')
 
     class Meta:
         # app_label ='rps计算'
         verbose_name = '欧奈尔PRS'
         # unique_together = (('code', 'tradedate'))
+
+class stocktradedate(models.Model):
+
+    tradedate = models.DateField(verbose_name='交易日期', unique=True)
+
+    @classmethod
+    def getlist(cls, start=None, end=None):
+        """
+
+        """
+        # 返回所有代码
+        if start is None and end is None:
+            return cls.objects.all()
+        else:
+            if start is None:
+                start = datetime.datetime(1990, 1,1)
+            if end is None:
+                end = datetime.datetime.now().date()
+            return cls.objects.all().filter(tradedate__gte=start, tradedate__lte=end)
+
+    @classmethod
+    def importList(cls):
+        """
+        从qa.QAUtil.QADate_trade.trade_date_sse导入交易日期
+        :return: 返回 .objects.all()
+        """
+        data = qa.QAUtil.QADate_trade.trade_date_sse
+        if len(data) > cls.getlist().count():
+            querysetlist = []
+            for v in [d.date() for d in pd.to_datetime(data)]:
+                querysetlist.append(stocktradedate(tradedate=v))
+            cls.objects.bulk_create(querysetlist)
+        return cls.getlist()
+
+    @classmethod
+    def getlist(cls):
+        """
+
+        """
+        # 返回所有代码
+        return cls.objects.all()
+
+    @classmethod
+    def get_real_date(cls,date, towards=-1):
+        """
+        获取真实的交易日期,其中,第三个参数towards是表示向前/向后推
+        towards=1 日期向后迭代
+        towards=-1 日期向前迭代
+        @ yutiansut
+
+        """
+        while not cls.if_trade(date):
+            date = str(datetime.datetime.strptime(
+                str(date)[0:10], '%Y-%m-%d') + datetime.timedelta(days=towards))[0:10]
+        else:
+            return datetime.datetime.strptime(str(date)[0:10], '%Y-%m-%d')
+
+
+    @property
+    def trade_date_sse(self):
+        try:
+            return self.tradedatelist
+        except Exception as e:
+            self.tradedatelist = stocktradedate.getlist().filter(tradedate__lte=datetime.datetime.now().date()).values()
+            # stocktradedate.objects.values_list('tradedate').filter(tradedate__lte=datetime.datetime.now().date())
+            return self.tradedatelist
+
+    @trade_date_sse.setter
+    def trade_date_sse(self, value):
+        pass
+
+    @classmethod
+    def if_trade(cls, day):
+        '日期是否交易'
+        try:
+            _sd = stocktradedate()
+            _sd.trade_date_sse.get(tradedate=(str(day)[:10]))
+            _sd = None
+            return True
+        except Exception as e:
+            return False
+
+    @classmethod
+    def nextTradeday(self, tradeday=None, n=1):
+        qa.QA_util_get_next_day()
+
+    class Meta:
+        # app_label ='rps计算'
+        verbose_name = 'A股交易日'

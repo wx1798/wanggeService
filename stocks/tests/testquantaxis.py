@@ -86,9 +86,9 @@ class testQuantaxis(TestCase):
         Listing.importStockListing()
         listings = Listing.objects.all()
         df = pd.DataFrame()
-        codelist = []
-        for a in listings[:100]:
-            codelist.append(a.code)
+        # codelist = []
+        # for a in listings[:100]:
+        #     codelist.append(a.code)
 
         for a in listings[:100]:
             code = a.code
@@ -310,7 +310,10 @@ class testQuantaxis(TestCase):
         self.assertTrue(data.loc[a, 'code'].count() > 0, '未找到分级基金')
 
     def test_QA_indicator_tradedate(self):
-        # 交易日期
+        """测试易日期
+
+        :return:
+        """
         data = qa.QA_fetch_trade_date()
         for a in data:
             print(a)
@@ -358,6 +361,6 @@ class testQuantaxis(TestCase):
                 Listing(code=a.code, name=a['name'], timeToMarket=d, volunit=a.volunit, decimalpoint=a.decimal_point,
                         category=category, market=market))
         Listing.objects.bulk_create(querysetlist)
-        self.assertTrue(Listing.getCodelist('index').count() > 0, '未插入成功:{}'.format(querysetlist))
+        self.assertTrue(Listing.getlist('index').count() > 0, '未插入成功:{}'.format(querysetlist))
 
 
